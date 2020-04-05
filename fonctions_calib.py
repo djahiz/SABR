@@ -1,10 +1,15 @@
+"""
+    Calibration functions
+    ======================
+ 
+    Use to solve minimization problem and find SABR parameters.
+ 
+"""
+
 import math
 from scipy.optimize import minimize
-import time
 
-# fonction de calcul de la vol impli avec l'approximation lognormale
-# prend en parametre les grandeurs calibrés ainsi qu'une valeur de forward, strike et de date d'expiration
-def vol_impli_sabr_lognormale(alpha,beta,rho,nu,forward,strike,expiry): 
+def vol_impli_sabr_lognormale(alpha, beta, rho, nu, forward, strike, expiry): 
 
     if forward <= 0 or strike <= 0:
         vol = 0
@@ -17,7 +22,7 @@ def vol_impli_sabr_lognormale(alpha,beta,rho,nu,forward,strike,expiry):
                 A = 1 + (alpha*nu*rho/(4.) + ((nu**2)*(2-3*(rho**2))/24.))*expiry
                 vol = alpha*A
             else:
-                V = (forward*strike)**((1-beta)/2.)
+                V = (forward)**(1-beta)
                 A = 1 + (((1-beta)**2*alpha**2)/((24.)*(V**2)) + (alpha*beta*nu*rho)/((4.)*V) + ((nu**2)*(2-3*(rho**2))/24.))*expiry
                 vol = (alpha/V)*A
         else: 
@@ -41,19 +46,14 @@ def vol_impli_sabr_lognormale(alpha,beta,rho,nu,forward,strike,expiry):
 
     return vol
 
-# fonction objectif pour la minimisation
-def objfunc(parametre,forward,strikes,expiry,market_vol):
+def objfunc(parameters, forward, strikes, expiry, market_vol):
     sum_error = 0
     for j in range(len(strikes)):
-        sum_error += 0  
         if market_vol[j] != 0:  
-            vol = vol_impli_sabr_lognormale(parametre[0],parametre[1],parametre[2],parametre[3],forward,strikes[j],expiry)
+            vol = vol_impli_sabr_lognormale(parameters[0], parameters[1], parameters[2], parameters[3], forward, strikes[j], expiry)
             sum_error += (vol - market_vol[j])**2
     return math.sqrt(sum_error)
 
-# calibration des paramètres du modèle
-# la fonction "minimize" de la librairie scipy permets de minimiser l'erreur calculée avec la fonction objectif précédente
-# la méthode "SLSQP" permets de minimiser sous les contraintes données dans le paramètre "bounds" de la fonction "minimize"
-def calibration(valeurs_initiales,limites,forward,strikes,expiry,market_vol,type_approx):
-    res = minimize(objfunc,valeurs_initiales,(forward,strikes,expiry,market_vol,type_approx),bounds = limites, method='SLSQP')
+def calibration(init_values, limites, forward, strikes ,expiry, market_vol):
+    res = minimize(objfunc, init_values, (forward, strikes, expiry, market_vol), bounds = limites, method = 'SLSQP')
     return res.x

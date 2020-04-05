@@ -2,32 +2,16 @@
     Calibration module
     ======================
  
-    Use it to import very obvious functions.
+    Use to calibrate SABR parameters.
  
-    :Example:
+    :Inputs:
  
-    >>> from obvious import add
-    >>> add(1, 1)
-    2
- 
-    This is a subtitle
-    -------------------
- 
-    You can say so many things here ! You can say so many things here !
-    You can say so many things here ! You can say so many things here !
-    You can say so many things here ! You can say so many things here !
-    You can say so many things here ! You can say so many things here !
- 
-    This is another subtitle
-    ------------------------
- 
-    Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-    tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-    quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-    consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
-    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-    proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
- 
+    File format .csv in repository Inputs
+    
+    :Outputs:
+
+    Create Output repository in the current location to save graphs and .csv with computed parameters for each entry of the input file
+  
  
 """
 
@@ -35,22 +19,14 @@ from fonctions_calib import *
 import csv
 import matplotlib.pyplot as plt
 import os
-import time
 
-# script de calibration
-# génère un fichier .csv contenant les valeurs des paramètres pour chaque (tenor,expiry)
-# génère les courbe de comparaison volatilité marché volatilité calibrée
-
-# première ligne du fichier .csv de sortie
-fields_param = ["Tenor","Expiry","Alpha","Beta","Rho","Nu"]
-# liste qui contiendra les ligne du fichier .csv
 param = []
 
-name_input_file = os.getcwd()+"\\inputs_lognormal.csv"
+name_input_file = os.getcwd()+"\\Inputs\\inputs_lognormal.csv"
 
 while True:
     print("Fixe parameter ?: ")
-    print("[0]: Aucun")
+    print("[0]: None")
     print("[1]: Beta")
     print("[2]: Rho")
     try:
@@ -86,7 +62,6 @@ if choice == 2:
         except ValueError:
             os.system("cls")
 
-# lecture des données en inputs (tenor, expiry, forward, market vol par spread)
 with open(name_input_file,"rt") as input_file:
     data_reader = csv.reader(input_file)
     data = [row for row in data_reader]
@@ -96,54 +71,51 @@ for i in range(3,len(data[0])):
         K.append(10000*float(data[1][2]))
     else:
         K.append(float(str.split(data[0][i])[1]))
-# on boucle sur toutes les lignes du fichier inputs
-# pour chaque ligne on calibre un jeu de paramètres puis on génère les graphs de comparaison
+
 data.pop(0)
 for row in data:
     
     strikes = [0.0001*k for k in K]
     forward = float(row[2])
-    # on recupere la vol market
+    
     vol_market = [float(v) for v in row[3:len(row)]]
-    # si on veut calibrer pour une valeur fixe de beta
 
     if choice == 1:
         valeurs_initiales = [0.001,beta_fixe,0,0.001]
         limites = ((0.001,None),(beta_fixe,beta_fixe),(-0.999,0.999),(0.001,None))
-    # si on veut calibrer pour une valeur fixe de rho
+    
     elif choice == 2:
         valeurs_initiales = [0.001,0.5,rho_fixe,0.001]
         limites = ((0.001,None),(0,1),(rho_fixe,rho_fixe),(0.001,None))
-    # sinon on calibre les 4 parametres
+    
     else:
         valeurs_initiales = [0.001, 0.5, 0, 0.001]
-        limites = ((0.001,None),(0,1),(rho_fixe,rho_fixe),(0.001,None))
+        limites = ((0.001,None),(0,1),(-0.999,0.999),(0.001,None))
         
-    result = calibration(valeurs_initiales,forward,strikes,float(row[1]),vol_market,type_approx)
-
-    param.append([row[0],row[1],result[0],result[1],result[2],result[3]])
-
+    result = calibration(valeurs_initiales,limites,forward,strikes,float(row[1]),vol_market)
     
-    vol_impli = [100*vol_impli_sabr_lognormale(result[0],result[1],result[2],result[3],forward,strike,float(row[1])) for strike in strikes]
-    plt.plot(K,vol_impli,label="Hagan lognormale ")
+    param.append([row[0],row[1],result[0],result[1],result[2],result[3]])
+    
+    vol_impli = [100*vol_impli_sabr_lognormale(result[0], result[1], result[2], result[3], forward, strike, float(row[1])) for strike in strikes]
 
-    # enregistrement des résultats (parametres fitté + graphs) 
-    plt.plot(K,[100*v for v in vol_market],label="Marché")
+    plt.plot(K, vol_impli, label = "Hagan lognormale ")
+
+    plt.plot(K, [100*v for v in vol_market], label = "Market")
     plt.legend()
     plt.xlabel("Strike (bps)")
-    plt.ylabel("Volatilité Implicite (%)")
+    plt.ylabel("Implied Volatility (%)")
     
     name_file_outputs = os.getcwd()+"\\Outputs"
     if not os.path.exists(name_file_outputs):
         os.makedirs(name_file_outputs)
-    plt.savefig(name_file_outputs+"\\Tenor "+row[0]+"y Expiry "+row[1]+"y_.png")
+    plt.savefig(name_file_outputs+"\\Tenor "+row[0]+"y Expiry "+row[1]+"y.png")
     plt.clf()
 
-# création du fichier csv de sortie et écriture des résultats
+
 with open(os.getcwd()+"\\Outputs\\output_param.csv", 'w', newline="") as param_file: 
     csvwriter = csv.writer(param_file) 
-    csvwriter.writerow(fields_param) 
+    csvwriter.writerow(["Tenor", "Expiry", "Alpha", "Beta", "Rho", "Nu"]) 
     csvwriter.writerows(param)
-# fermeture des fichiers
+
 input_file.close()
 param_file.close()

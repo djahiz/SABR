@@ -108,7 +108,7 @@ if __name__ == '__main__':
     strike_max = 150
     strikes = [i/100 for i in range(strike_min*100,strike_max*100)]
     nb_etape = 250
-    nb_simul = 1000
+    nb_simul = 10000
 
     while True:
         print("Que voulez vous faire:")
